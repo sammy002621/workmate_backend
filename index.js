@@ -15,7 +15,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 
 // import the auth routes
 app.use('/workmate/v1/auth',require('./api/routes/auth.routes'));
-
+app.use('/workmate/v1/otp',require('./api/routes/otp.routes'));
 const port = process.env.PORT || 3000;
 
 app.get('/',(req,res)=>{
@@ -25,18 +25,12 @@ app.get('/',(req,res)=>{
 
 app.listen(port,async ()=>{
     console.log(`Server is running on http://localhost:${port}`);
-    // make connnection to database
+    // make connection to database
     await connectDB();
 })
 
 
-//NOTE: REQUIREMENTS TO MAKE a signup and a sign in : body -> body-parser , database -> mongodb , password encryption -> bcryptjs , token -> jsonwebtoken , validation -> joi, local variables -> dotenv
 
 
-//NOTE:setting up server:done,connection to database:done,creating a new user 
 
-
-//NOTE: use the best practices for naming api paths for example: /workmate/v1/auth -> authentication 
-
-
-//NOTE: test to see if the api to sign up the user is working
+//NOTE: first create the model for the image you want to upload (properties : url , publicId , uploadedBy) , then create the cloudinary config (everything  that has something to do with api keys and secret keys should be in the .env file) , create the helper which has the logic to upload image to cloudinary ,then create the controller for the image (uploadImage: where the image will be created with the properties and saved in the database) , then create the routes for the image (uploadImage: where the image will be created with the properties and saved in the database) , then test the api to see if it is working now in the route  to upload the image there will be an uploadMiddleware : that uses multer to upload the image use fs.unlinkSync to delete image from local storage after it's uploaded to mongo db 

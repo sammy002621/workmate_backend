@@ -3,143 +3,93 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/user.model');
 const { signupSchema,loginSchema } = require('../validations/auth.validation');
 
-
-
-
-
-
-
-const createUser = async(req,res)=>{
-    // get the user data from the request body 
-
-// validate the request body 
-// if the request body is not valid then send the error message to the client
-// if the request body is valid then save the user data to the database
-
-const {error} = signupSchema.validate(req.body);
-
-if(error){
-    console.log(error.details[0].message);
-    return res.status(400).send(error.details[0].message);
-}
-
-
-    // valid body proceed to user creation
-    const {email,phone,compID,password} = req.body;
-
+const createUser = async (req, res) => {
     try {
-        // Check if the user already exists
+        console.log(`user obtained from the frontend for signup:`, req.body);
+        const { error } = signupSchema.validate(req.body);
+        if (error) {
+            return res.status(400).json({ 
+                message: error.details[0].message 
+            });
+        } 
+        const { email, phone, compID, password } = req.body;
+
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            console.log('User already exists');
-            return res.status(400).send('User already exists');
-        }else{
-// Hash the password
-const hashedPassword = await bcrypt.hash(password, 10);
-
-// Create the user
-const newUser = await User.create({
-    email,
-    phone,
-    compID,
-    password: hashedPassword
-});
-
-// if any error occurs while creating user 
-if(!newUser){
-    console.log('Failed to create User');
-    return res.status(400).send({message:'Failed to create User'});
-}else{
-// Generate a token
-const token = jwt.sign({ id: newUser._id }, process.env.SECRET, { expiresIn: process.env.EXPIRES_IN });
-
-// Return the new user with the created token
-if(!token){
-    console.log('Failed to create token');
-    return res.status(400).send({message:'Failed to create token'});
-}else{
-    console.log('User created');
-    return res.status(201).send({
-        user: newUser,
-        token: token,
-        });
-}
-}
-        }
-
-        
-
-        
-    } catch (error) {
-        console.log(error.message);
-        return res.status(500).send({
-            error: error.message,
-    });
-    }  
-
-
-    }
-
-
-
-const loginUser = async(req,res)=>{
-    // get the user data from the request body
-    // validate the request body
-    // if the request body is not valid then send the error message to the client
-    // if the request body is valid then check if the user exists
-    // if the user exists then check if the password is correct
-    // if the password is correct then generate a token and return the user with the token
-    // if the password is incorrect then send an error message to the client
-    const {email,password} = req.body;
-
-    const {error} = loginSchema.validate(req.body);
-
-    if(error){
-        console.log(error.details[0].message);
-        return res.status(400).send(error.details[0].message);
-    } else {
-        // valid body proceed to check if user exists
-          try {
-            // check if user exists
-            const userExists = await User.findOne({ email });
-            if (!userExists) {
-                console.log('User does not exist');
-                return res.status(400).send('User does not exist');
-            } else {
-                // check if password is correct
-                const validPassword = await bcrypt.compare(password, userExists.password);
-                if (!validPassword) {
-                    console.log('Invalid password');
-                    return res.status(400).send('Invalid password');
-                } else {
-                    // generate token
-                    const token = jwt.sign({ id: userExists._id }, process.env.SECRET, { expiresIn: process.env.EXPIRES_IN });
-                    if (!token) {
-                        console.log('Failed to create token');
-                        return res.status(400).send({ message: 'Failed to create token' });
-                    } else {
-                        console.log('User logged in');
-                        return res.status(200).send({
-                            user: userExists,
-                            token: token,
-                        });
-                    }
-                }
-            }
-        } catch (error) {
-            console.log(error.message);
-            return res.status(500).send({
-                error: error.message,
+            return res.status(409).json({ 
+                message: 'Email already registered' 
             });
         }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        const newUser = await User.create({
+            email,
+            phone,
+            compID,
+            password: hashedPassword
+        });
+
+        const token = jwt.sign(
+            { id: newUser._id, email: newUser.email },
+            process.env.SECRET,
+            { expiresIn: process.env.EXPIRES_IN }
+        );
+        
+        console.log("Response sent to frontend:", {
+            "user": newUser,
+            "token":token
+          });
+        return res.status(201).json({
+            "user": newUser,
+            "token":token,
+        });
+
+    } catch (e) {
+        console.error(e); // Log the error for debugging
+        return res.status(500).json({
+            message: 'Internal server error'
+        });
     }
+};
 
-         
-}
+const loginUser = async (req, res) => {
+    try {
+        console.log(`user obtained from the frontend for login : ${req.body}`)
+        const { email, password } = req.body;
+        
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
 
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign(
+            { id: user._id, email: user.email }, 
+            process.env.SECRET, 
+            { expiresIn: process.env.EXPIRES_IN }
+        );
+        console.log(user)
+        return res.status(200).json({
+            user,
+            token
+        });
+
+    } catch (e) {
+        return res.status(500).json({ 
+            message: `Internal server error : ${e.message}` 
+        });
+    }
+};
 
 
     module.exports = {
         createUser,
         loginUser,
     }
+
+// 400 , 409 , 500 , 401

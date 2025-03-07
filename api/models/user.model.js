@@ -30,7 +30,13 @@ const userSchema = new Schema({
         required: true,
         minlength: 5,
         maxlength: 1024
-    }
+    },
+
+    role: {
+        type: String,
+        enum: ['Admin', 'user'],
+        default: 'user'
+      }
 });
 
 // creating model 
