@@ -1,13 +1,14 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/user.model');
+const OTP = require('../models/otp.model');
 const { signupSchema,loginSchema } = require('../validations/auth.validation');
 
 exports.signup = async (req, res) => {
   try {
-    const { name, email, password, role, otp } = req.body;
+    const { email,phone,compID, password, role, otp } = req.body;
     // Check if all details are provided
-    if (!name || !email || !password || !otp) {
+    if (!email ||!phone || !compID || !password || !otp) {
       return res.status(403).json({
         success: false,
         message: 'All fields are required',
@@ -40,21 +41,18 @@ exports.signup = async (req, res) => {
       });
     }
     const newUser = await User.create({
-      name,
       email,
+      phone,
+      compID,
       password: hashedPassword,
       role,
     });
-
-    try {
-        const token = jwt.sign(
-            { id: newUser._id, email: newUser.email  },
+    
+         token = jwt.sign(
+            { id: newUser._id, email: newUser.email , role:newUser.role},
             process.env.SECRET,
             { expiresIn: process.env.EXPIRES_IN }
           );
-    } catch (error) {
-        console.log(`Error occurred while generating token: ${error.message}`);
-    }
 
     console.log('User registered successfully',{
         user: newUser,
@@ -64,11 +62,11 @@ exports.signup = async (req, res) => {
       success: true,
       message: 'User registered successfully',
       user: newUser,
-      token,
+      token:token,
     });
   } catch (error) {
     console.log(error.message);
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: "signup error : " + error.message });
   }
 };
 exports.loginUser = async (req, res) => {
