@@ -3,57 +3,75 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/user.model');
 const { signupSchema,loginSchema } = require('../validations/auth.validation');
 
-const createUser = async (req, res) => {
+exports.signup = async (req, res) => {
+  try {
+    const { name, email, password, role, otp } = req.body;
+    // Check if all details are provided
+    if (!name || !email || !password || !otp) {
+      return res.status(403).json({
+        success: false,
+        message: 'All fields are required',
+      });
+    }
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists',
+      });
+    }
+    // Find the most recent OTP for the email
+    const response = await OTP.find({ email }).sort({ createdAt: -1 }).limit(1);
+    if (response.length === 0 || otp !== response[0].otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'The OTP is not valid',
+      });
+    }
+    // Secure password
+    let hashedPassword;
     try {
-        console.log(`user obtained from the frontend for signup:`, req.body);
-        const { error } = signupSchema.validate(req.body);
-        if (error) {
-            return res.status(400).json({ 
-                message: error.details[0].message 
-            });
-        } 
-        const { email, phone, compID, password } = req.body;
+      hashedPassword = await bcrypt.hash(password, 10);
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: `Hashing password error for ${password}: ` + error.message,
+      });
+    }
+    const newUser = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      role,
+    });
 
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(409).json({ 
-                message: 'Email already registered' 
-            });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        const newUser = await User.create({
-            email,
-            phone,
-            compID,
-            password: hashedPassword
-        });
-
+    try {
         const token = jwt.sign(
-            { id: newUser._id, email: newUser.email },
+            { id: newUser._id, email: newUser.email  },
             process.env.SECRET,
             { expiresIn: process.env.EXPIRES_IN }
-        );
-        
-        console.log("Response sent to frontend:", {
-            "user": newUser,
-            "token":token
-          });
-        return res.status(201).json({
-            "user": newUser,
-            "token":token,
-        });
-
-    } catch (e) {
-        console.error(e); // Log the error for debugging
-        return res.status(500).json({
-            message: 'Internal server error'
-        });
+          );
+    } catch (error) {
+        console.log(`Error occurred while generating token: ${error.message}`);
     }
-};
 
-const loginUser = async (req, res) => {
+    console.log('User registered successfully',{
+        user: newUser,
+        token
+    });
+    return res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      user: newUser,
+      token,
+    });
+  } catch (error) {
+    console.log(error.message);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+exports.loginUser = async (req, res) => {
     try {
         console.log(`user obtained from the frontend for login : ${req.body}`)
         const { email, password } = req.body;
@@ -87,9 +105,5 @@ const loginUser = async (req, res) => {
 };
 
 
-    module.exports = {
-        createUser,
-        loginUser,
-    }
-
 // 400 , 409 , 500 , 401
+
